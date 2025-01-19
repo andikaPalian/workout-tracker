@@ -181,7 +181,7 @@ const changeEmail = async (req, res) => {
             return res.status(400).json({message: "PLease enter a valid email"});
         };
 
-        const user = await User.findById(userId).select("-password");
+        const user = await User.findById(userId);
         if(!user) {
             return res.status(404).json({message: "User not found"});
         };
@@ -211,7 +211,9 @@ const changeEmail = async (req, res) => {
         await user.save();
         res.status(200).json({
             message: "Email changed successfully",
-            data: user,
+            data: {
+                email: user.email,
+            },
         });
     } catch (error) {
         console.error("Error changing email", error);
