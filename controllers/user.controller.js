@@ -140,7 +140,12 @@ const updateUserProfile = async (req, res) => {
             };
             update.weight = weight;
         };
-        if (goal) update.goal = goal;
+        if (goal !== undefined) {
+            if (typeof goal !== "string" || goal.trim().length === 0 || goal.trim().length > 30) {
+                return res.status(400).json({message: "Invalid goal value. It must be a non-empty string with a maximum of 30 characters."});
+            };
+            update.goal = validator.escape(goal.trim());
+        };
 
         // Cek apakah ada data yang di update atau tidak
         if (!Object.keys(update).length) {
@@ -273,6 +278,6 @@ const getUserProfile = async (req, res) => {
             error: error.message || "An unexpected error occurred",
         });
     };
-}
+};
 
 export {registerUser, loginUser, updateUserProfile, changeEmail, changePassword, getUserProfile};
