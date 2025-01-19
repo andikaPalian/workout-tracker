@@ -16,6 +16,16 @@ const registerUser = async (req, res) => {
                 validValues: validGender,
             });
         };
+        if (height !== undefined) {
+            if (typeof height !== "number" || isNaN(height) || height <= 0) {
+                return res.status(400).json({message: "Invalid height value. Height must be a positive number."});
+            };
+        };
+        if (weight !== undefined) {
+            if (typeof weight !== "number" || isNaN(weight) || weight <= 0) {
+                return res.status(400).json({message: "Invalid weight value. Weight must be a positive number."});
+            };
+        };
         
         // Cek user sudah ada atau belum
         const existingUser = await User.findOne({
@@ -101,4 +111,165 @@ const loginUser = async (req, res) => {
     };
 };
 
-export {registerUser, loginUser};
+const updateUserProfile = async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const {username, height, weight, goal} = req.body;
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({message: "User not found"})
+        };
+
+        const update = {}
+        if (username !== undefined) {
+            if (typeof username !== "string" || username.trim().length < 3 || username.trim().length > 30) {
+                return res.status(400).json({message: "Invalid username. It must be a string between 3 and 30 characters."});
+            };
+            update.username = validator.escape(username.trim());
+        };
+        if (height !== undefined) {
+            if (typeof height !== "number" || isNaN(height) || height <= 0) {
+                return res.status(400).json({message: "Invalid height value. Height must be a positive number."});
+            };
+            update.height = height;
+        };
+        if (weight !== undefined) {
+            if (typeof weight !== "number" || isNaN(weight) || weight <= 0) {
+                return res.status(400).json({message: "Invalid weight value. Weight must be a positive number."});
+            };
+            update.weight = weight;
+        };
+        if (goal) update.goal = goal;
+
+        // Cek apakah ada data yang di update atau tidak
+        if (!Object.keys(update).length) {
+            return res.status(400).json({message: "No data to update"});
+        };
+
+        const updatedUser = await User.findByIdAndUpdate(
+            userId,
+            {$set: update},
+            {new: true},
+        ).select("-password");
+
+        res.status(200).json({
+            message: "User profile updated successfully",
+            data: updatedUser,
+        });
+    } catch (error) {
+        console.error("Error updating user profile", error);
+        return res.status(500).json({
+            message: "Internal server error",
+            error: error.message || "An unexpected error occurred",
+        });
+    };
+};
+
+const changeEmail = async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const {newEmail, password} = req.body;
+
+        // Verifikasi format email
+        if (!validator.isEmail(newEmail)) {
+            return res.status(400).json({message: "PLease enter a valid email"});
+        };
+
+        const user = await User.findById(userId).select("-password");
+        if(!user) {
+            return res.status(404).json({message: "User not found"});
+        };
+
+        // Cek apakah email baru sama dengan email lama
+        if (newEmail === user.email) {
+            return res.status(400).json({message: "New email is the same as the current email"});
+        };
+
+        const emailExists = await User.findOne({email: newEmail});
+        if (emailExists) {
+            return res.status(400).json({message: "Email already in use"});
+        };
+
+        // Verifikasi panjang password
+        if (password.length < 8) {
+            return res.status(400).json({message: "Password must be at least 8 characters"});
+        };
+
+        // Verifikasi password sesuai dengan password saat ini
+        const passwordMatch = await bcrypt.compare(password, user.password);
+        if (!passwordMatch) {
+            return res.status(400).json({message: "Invalid password"});
+        };
+
+        user.email = newEmail;
+        await user.save();
+        res.status(200).json({
+            message: "Email changed successfully",
+            data: user,
+        });
+    } catch (error) {
+        console.error("Error changing email", error);
+        return res.status(500).json({
+            message: "Internal server error",
+            error: error.message || "An unexpected error occurred",
+        });
+    };
+};
+
+const changePassword = async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const {currentPassword, newPassword} = req.body;
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({message: "User not found"});
+        };
+
+
+        // Verifikasi password saat ini
+        const passwordMatch = await bcrypt.compare(currentPassword, user.password);
+        if (!passwordMatch) {
+            return res.status(400).json({message: "Current password is incorrect"});
+        };
+
+        const passwordReqex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+        if (!passwordReqex.test(newPassword)) {
+            return res.status(400).json({message: "Password must be at least 8 characters and contain at least one uppercase letter, one lowercase letter, one number, and one special character."});
+        };
+        if (newPassword === currentPassword) {
+            return res.status(400).json({message: "New password cannot be the same as the current password"});
+        };
+
+        const hashedNewPassword = await bcrypt.hash(newPassword, 12);
+        user.password = hashedNewPassword;
+        await user.save();
+        res.status(200).json({message: "Password changed successfully"});
+    } catch (error) {
+        console.error("Error changing password", error);
+        return res.status(500).json({
+            message: "Internal server error",
+            error: error.message || "An unexpected error occurred",
+        });
+    };
+};
+
+const getUserProfile = async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const user = await User.findById(userId).select("-password");
+        if (!user) {
+            return res.status(404).json({message: "User not found"});
+        };
+        res.status(200).json(user);
+    } catch (error) {
+        console.error("Error getting ueer profile", error);
+        return res.status(500).json({
+            message: "Internal server error",
+            error: error.message || "An unexpected error occurred",
+        });
+    };
+}
+
+export {registerUser, loginUser, updateUserProfile, changeEmail, changePassword, getUserProfile};
