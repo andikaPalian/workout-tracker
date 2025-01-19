@@ -234,12 +234,15 @@ const changePassword = async (req, res) => {
             return res.status(400).json({message: "Current password is incorrect"});
         };
 
+        // Validasi format password baru
         const passwordReqex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
         if (!passwordReqex.test(newPassword)) {
             return res.status(400).json({message: "Password must be at least 8 characters and contain at least one uppercase letter, one lowercase letter, one number, and one special character."});
         };
-        if (newPassword === currentPassword) {
-            return res.status(400).json({message: "New password cannot be the same as the current password"});
+        // Cek apakah password baru sama dengan password saat ini
+        const isMacth = await bcrypt.compare(newPassword, user.password);
+        if (isMacth) {
+            return res.status(400).json({message: "New password is the same as the current password"});
         };
 
         const hashedNewPassword = await bcrypt.hash(newPassword, 12);
