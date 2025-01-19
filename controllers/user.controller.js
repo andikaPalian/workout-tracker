@@ -6,7 +6,7 @@ import User from "../models/user.model.js";
 const registerUser = async (req, res) => {
     try {
         const {username, email, password, height, weight, goal, gender} = req.body;
-        if (!username?.trim() || !email?.trim() || !password?.trim() || !height?.trim() || !weight?.trim() || !goal?.trim() || !gender?.trim()) {
+        if (!username?.trim() || !email?.trim() || !password?.trim() || !height || !weight || !goal?.trim() || !gender?.trim()) {
             return res.status(400).json({message: "All fields are required"});
         };
         const validGender = ["male", "female"];
