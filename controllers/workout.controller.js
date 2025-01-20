@@ -287,4 +287,44 @@ const updateWorkout = async (req, res) => {
     };
 };
 
-export {createdWorkout, getWorkouts, addComments, deleteComments, updateComments, updateWorkout};
+const updateWorkoutStatus = async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const workoutId = req.params.id;
+        const {status} = req.body;
+
+        if (!mongoose.Types.ObjectId.isValid(workoutId)) {
+            return res.status(400).json({message: "Invalid workout ID"});
+        }
+
+        const workout = await Workout.findOne({
+            _id: workoutId,
+            user: userId,
+        });
+        if (!workout) {
+            return res.status(404).json({message: "Workout not found"});
+        }
+
+        const validStatus = ['pending', 'in-progress', 'completed', 'cancelled'];
+        if (status) {
+            if (!validStatus.includes(status.toLowerCase())) {
+                return res.status(400).json({message: "Invalid status. Status must be one of 'pending', 'in-progress', 'completed', or 'cancelled'"});
+            }
+
+            workout.status = status;
+        }
+        await workout.save();
+        res.status(200).json({
+            message: "Workout status updated successfully",
+            data: workout
+        })
+    } catch (error) {
+        console.error("Error updating workout status", error);
+        return res.status(500).json({
+            message: "Internal server error",
+            error: error.message || "An unexpected error occurred",
+        });
+    };
+};
+
+export {createdWorkout, getWorkouts, addComments, deleteComments, updateComments, updateWorkout, updateWorkoutStatus};
