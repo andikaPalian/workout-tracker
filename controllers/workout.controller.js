@@ -1,7 +1,9 @@
 import Workout from "../models/workout.model.js";
+import mongoose from "mongoose";
 
 const createdWorkout = async (req, res) => {
     try {
+        const userId = req.user.userId;
         const {title, scheduledDate, scheduledTime, exercises} = req.body;
         if (!title || !scheduledDate || !scheduledTime || !exercises) {
             return res.status(400).json({message: "All fields are required"});
@@ -20,7 +22,7 @@ const createdWorkout = async (req, res) => {
         };
 
         const workout = new Workout({
-            user: req.user._id,
+            user: userId,
             title,
             scheduledDate,
             scheduledTime,
@@ -41,4 +43,184 @@ const createdWorkout = async (req, res) => {
     };
 };
 
-export {createdWorkout};
+const getWorkouts = async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const {status, startDate, endDate} = req.query;
+        const filter = {user: userId};
+
+        // Validasi status
+        const validStatus = ['pending', 'in-progress', 'completed', 'cancelled'];
+        if (status && !validStatus.includes(status.toLowerCase())) {
+            return res.status(400).json({message: "Invalid status. Status must be one of 'pending', 'in-progress', 'completed', or 'cancelled'"});
+        };
+        if (status) filter.status = status;
+
+        // Validasi tanggal
+        if (startDate || endDate) {
+            if (isNaN(new Date(startDate).getTime()) || isNaN(new Date(endDate).getTime())) {
+                return res.status(400).json({message: "Invalid date format"});
+            };
+
+            if (startDate && endDate) {
+                filter.scheduledDate = {
+                    $gte: new Date(startDate),
+                    $lte: new Date(endDate),
+                };
+            };
+        };
+
+        const workout = await Workout.find(filter).sort({
+            scheduledDate: 1,
+            scheduledTime: 1
+        });
+        // Periksa apakah data ditemukan
+        if (!workout || workout.length === 0) {
+            return res.status(404).json({message: "No workouts found"});
+        };
+        res.status(200).json({data: workout});
+    } catch (error) {
+        console.error("Error getting workouts", error);
+        return res.status(500).json({
+            message: "Internal server error",
+            error: error.message || "An unexpected error occurred",
+        });
+    };
+};
+
+const addComments = async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const workoutId = req.params.id;
+        const {text} = req.body;
+
+        if (!mongoose.Types.ObjectId.isValid(workoutId)) {
+            return res.status(400).json({message: "Invalid workout ID"})
+        }
+
+        if (!text || typeof text !== "string" || text.trim().length === 0) {
+            return res.status(400).json({message: "Comment text is required and must be a non-empty string"});
+        }
+
+        if (text.trim().length > 500) {
+            return res.status(400).json({message: "Comment text cannot exceed 500 characters"});
+        }
+
+        const workout = await Workout.findOne({
+            _id: workoutId,
+            user: userId,
+        });
+
+        if (!workout) {
+            return res.status(404).json({message: "Workout not found"});
+        };
+
+        workout.comments.push({text});
+        await workout.save();
+        res.status(200).json({
+            message: "Comment added successfully",
+            data: workout.comments
+    });
+    } catch (error) {
+        console.error("Error adding comments", error);
+        return res.status(500).json({
+            message: "Internal server error",
+            error: error.message || "An unexpected error occurred",
+        });
+    };
+};
+
+const deleteComments = async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const workoutId = req.params.id;
+        const commentId = req.params.commentId;
+
+        if (!mongoose.Types.ObjectId.isValid(workoutId)) {
+            return res.status(400).json({message: "Invalid workout ID"});
+        };
+
+        if (!mongoose.Types.ObjectId.isValid(commentId)) {
+            return res.status(400).json({message: "Invalid comment ID"});
+        };
+
+        const workout = await Workout.findOne({
+            _id: workoutId,
+            user: userId,
+        });
+        if (!workout) {
+            return res.status(404).josn({message: "Workout not found"});
+        };
+
+        const commentIndex = workout.comments.findIndex((comment) => comment._id.toString() === commentId);
+        if (commentIndex === -1) {
+            return res.status(404).json({message: "Comment not found"});
+        };
+
+        workout.comments.splice(commentIndex, 1);
+        await workout.save();
+        res.status(200).json({
+            message: "Comment deleted successfully",
+            data: workout.comments,
+        });
+    } catch (error) {
+        console.error("Error deleting comments", error);
+        return res.status(500).json({
+            message: "Internal server error",
+            error: error.message || "An unexpected error occurred",
+        });
+    };
+};
+
+const updateComments = async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const workoutId = req.params.id;
+        const commentId = req.params.commentId;
+        const {text} = req.body;
+
+        if (!mongoose.Types.ObjectId.isValid(workoutId)) {
+            return res.status(400).json({message: "Invalid workout ID"});
+        };
+
+        if (!mongoose.Types.ObjectId.isValid(commentId)) {
+            return res.status(400).json({message: "Invalid comment ID"});
+        };
+
+        if (!text || typeof text !== "string" || text.trim().length === 0) {
+            return res.status(400).json({message: "Comment text is required and must be a non-empty string"});
+        }
+
+        if (text.trim().length > 500) {
+            return res.status(400).json({message: "Comment text cannot exceed 500 characters"});
+        }
+
+        const workout = await Workout.findOne({
+            _id: workoutId,
+            user: userId,
+        });
+        if (!workout) {
+            return res.status(404).json({message: "Workout not found"});
+        }
+
+        const commentIndex = workout.comments.findIndex((comment) => comment._id.toString() === commentId);
+        if (commentIndex === -1) {
+            return res.status(404).json({message: "Comment not found"});
+        };
+
+        workout.comments[commentIndex].text = text;
+        await workout.save();
+        res.status(200).json({
+            message: "Comment updated successfully",
+            data: workout.comments[commentIndex],
+        });
+    } catch (error) {
+        console.error("Error updating comments", error);
+        return res.status(500).json({
+            message: "Internal server error",
+            error: error.message || "An unexpected error occurred",
+        });
+    };
+};
+
+export {createdWorkout, getWorkouts, addComments, deleteComments, updateComments};

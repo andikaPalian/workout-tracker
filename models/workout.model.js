@@ -44,23 +44,18 @@ const workoutSchema = new mongoose.Schema({
         enum: ['pending', 'in-progress', 'completed', 'cancelled'],
         default: "pending",
     },
-    comments: {
+    comments: [{
         text: String,
         createdAt: {
             type: Date,
-            default: Date.noe,
+            default: Date.now,
         },
-    },
+    }],
     completionRate: {
         type: Number,
         default: 0
     },
     duration: Number, // Total durasi workout dalam menit
-    type: {
-        type: String,
-        enum: ['strength', 'cardio', 'flexibility', 'mixed'],
-        required: true,
-    },
     notes: String,
 }, {
     timestamps: true,

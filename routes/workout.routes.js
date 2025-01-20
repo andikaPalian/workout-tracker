@@ -1,9 +1,13 @@
 import express from "express";
 import authMiddleware from "../middleware/authMiddleware.js";
-import { createdWorkout } from "../controllers/workout.controller.js";
+import { addComments, createdWorkout, deleteComments, getWorkouts, updateComments } from "../controllers/workout.controller.js";
 
 const workoutRoute = express.Router();
 
-workoutRoute.post("/add-workout", authMiddleware, createdWorkout);
+workoutRoute.post("/", authMiddleware, createdWorkout);
+workoutRoute.get("/", authMiddleware, getWorkouts);
+workoutRoute.post("/:id/comments", authMiddleware, addComments)
+workoutRoute.delete('/:id/comments/:commentId', authMiddleware, deleteComments);
+workoutRoute.put("/:id/comments/:commentId", authMiddleware, updateComments);
 
 export default workoutRoute;
