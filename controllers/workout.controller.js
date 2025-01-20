@@ -9,6 +9,10 @@ const createdWorkout = async (req, res) => {
             return res.status(400).json({message: "All fields are required"});
         };
 
+        if (typeof title !== "string" || title.trim().length === 0) {
+            return res.status(400).json({message: "Title must be a non-empty string"});
+        }
+
         if (!Array.isArray(exercises) || exercises.length === 0) {
             return res.status(400).json({message: "Exercise must be a non-empty array"});
         };
@@ -223,4 +227,64 @@ const updateComments = async (req, res) => {
     };
 };
 
-export {createdWorkout, getWorkouts, addComments, deleteComments, updateComments};
+const updateWorkout = async (req, res) => {
+    try {
+        const userId = req.user.userId;
+        const workoutId = req.params.id;
+        const {title, scheduledDate, scheduledTime, exercises} = req.body;
+
+        if (!mongoose.Types.ObjectId.isValid(workoutId)) {
+            return res.status(400).json({message: "Invalid workout ID"});
+        };
+
+        const workout = await Workout.findOne({
+            _id: workoutId,
+            user: userId,
+        });
+        if (!workout) {
+            return res.status(404).json({message: "Workout not found"});
+        };
+
+        if (title) {
+            if (typeof title !== "string" || title.trim().length === 0) {
+                return res.status(400).json({message: "Title must be a non-empty string"});
+            }
+            workout.title = title;
+        }
+
+        if (scheduledDate) {
+            if (isNaN(new Date(scheduledDate).getTime())) {
+                return res.status(400).json({message: "Invalid scheduled date format"});
+            }
+            workout.scheduledDate = scheduledDate;
+        }
+
+        if (scheduledTime) {
+            if (!/^\d{2}:\d{2}$/.test(scheduledTime)) {
+                return res.status(400).json({message: "Invalid scheduled time format. Use HH:MM format."});
+            };
+            workout.scheduledTime = scheduledTime;
+        }
+
+        if (exercises) {
+            if (!Array.isArray(exercises) || exercises.length === 0) {
+                return res.status(400).json({message: "Exercise must be a non-empty array"});
+            };
+            workout.exercises = exercises;
+        }
+
+        await workout.save();
+        res.status(200).json({
+            message: "Workout updated successfully",
+            data: workout,
+        });
+    } catch (error) {
+        console.error("Error updating workout", error);
+        return res.status(500).json({
+            message: "Internal server error",
+            error: error.message || "An unexpected error occurred",
+        });
+    };
+};
+
+export {createdWorkout, getWorkouts, addComments, deleteComments, updateComments, updateWorkout};
